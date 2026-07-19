@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Discover unique, beautiful, and premium handmade crafts created with love. Purchase easily by contacting the artisan on WhatsApp.">
+  <title>CraftyHand - Premium Handmade Crafts Store</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  
+  <!-- Mandatory Location Check Overlay -->
+  <div class="modal-overlay" id="location-gate-overlay">
+    <div class="modal-content auth-modal gate-modal">
+      <div class="auth-header">
+        <i data-lucide="map-pin" class="auth-icon location-pulse"></i>
+        <h2>Delivery Feasibility Check</h2>
+        <p>Verify if delivery is feasible to your area before browsing our catalog.</p>
+      </div>
+      <div class="gate-status-box" id="gate-status-msg">
+        <span>⏳ Waiting to verify delivery feasibility...</span>
+      </div>
+      <button type="button" class="submit-btn" id="btn-request-gate-location">
+        <i data-lucide="navigation"></i> Check Delivery Feasibility
+      </button>
+      <div class="secure-context-warning hidden" id="secure-context-warning">
+        <p>⚠️ <strong>Secure Context Required:</strong> Mobile browsers restrict GPS access to secure <code>https://</code> connections. Please reload using HTTPS.</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Announcement Bar -->
+  <div class="announcement-bar">
+    <span>✨ Free standard shipping on orders above $50! ✨</span>
+  </div>
+
+  <!-- Header -->
+  <header class="main-header">
+    <div class="header-container">
+      <a href="#" class="logo" id="header-logo">
+        <i data-lucide="sparkles" class="logo-icon"></i>
+        <span id="shop-name-display">CraftyHand</span>
+      </a>
+      
+      <!-- Navigation -->
+      <nav class="main-nav">
+        <a href="#" class="nav-link active" id="nav-store"><i data-lucide="store"></i> Store</a>
+        <button class="nav-btn" id="nav-admin-btn"><i data-lucide="settings"></i> Manage Shop</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Store View -->
+  <main id="store-view" class="view-section active">
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <div class="hero-content">
+        <span class="hero-badge">100% Handcrafted Goods</span>
+        <h1 class="hero-title" id="shop-tagline-display">Beautiful Handcrafted Creations - Made with Love</h1>
+        <p class="hero-subtitle">Every piece tells a story. Lovingly crafted by hand, shipped directly to your doorstep. Browse, select, and easily order via WhatsApp.</p>
+        <div class="hero-cta-container">
+          <a href="#products-section" class="cta-btn primary-btn">Explore Crafts <i data-lucide="arrow-down"></i></a>
+        </div>
+      </div>
+      <div class="hero-decorative-elements">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+      </div>
+    </section>
+
+    <!-- Delivery Location Checker -->
+    <section class="delivery-check-section">
+      <div class="delivery-check-card">
+        <div class="delivery-check-info">
+          <i data-lucide="map-pin" class="pin-icon"></i>
+          <div>
+            <h3>Check Delivery Availability</h3>
+            <p>Verify if shipping is available to your current location (serviceable across India).</p>
+          </div>
+        </div>
+        <div class="delivery-check-actions">
+          <button class="action-btn primary-btn" id="btn-check-delivery">
+            <i data-lucide="navigation"></i> Check Location
+          </button>
+          <span class="delivery-status-msg" id="delivery-status-msg"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Catalog Section -->
+    <section id="products-section" class="catalog-section">
+      <div class="catalog-header">
+        <div class="section-title-wrapper">
+          <h2 class="section-title">Artisan Collection</h2>
+          <div class="title-underline"></div>
+        </div>
+        
+        <!-- Search & Filter Bar -->
+        <div class="search-filter-container">
+          <div class="search-box">
+            <i data-lucide="search" class="search-icon"></i>
+            <input type="text" id="search-input" placeholder="Search handcrafted crafts...">
+          </div>
+          <div class="category-filters-wrapper">
+            <div class="category-filters" id="category-filters-list">
+              <button class="filter-btn active" data-category="all">All</button>
+              <button class="filter-btn" data-category="Ceramics">Ceramics</button>
+              <button class="filter-btn" data-category="Textiles">Textiles</button>
+              <button class="filter-btn" data-category="Woodwork">Woodwork</button>
+              <button class="filter-btn" data-category="Candles">Candles</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Products Grid -->
+      <div class="products-grid" id="products-grid">
+        <!-- Rendered dynamically by app.js -->
+        <div class="shimmer-placeholder"></div>
+        <div class="shimmer-placeholder"></div>
+        <div class="shimmer-placeholder"></div>
+      </div>
+      
+      <!-- Empty State -->
+      <div class="empty-state hidden" id="no-products-message">
+        <i data-lucide="package-open" class="empty-icon"></i>
+        <h3>No crafts found</h3>
+        <p>Try adjusting your search filters or check back later!</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Admin Passcode Overlay Modal -->
+  <div class="modal-overlay hidden" id="admin-auth-modal">
+    <div class="modal-content auth-modal">
+      <button class="modal-close" id="auth-modal-close"><i data-lucide="x"></i></button>
+      <div class="auth-header">
+        <i data-lucide="lock" class="auth-icon"></i>
+        <h2>Admin Authentication</h2>
+        <p>Please enter the passcode to manage the shop settings and products.</p>
+      </div>
+      <form id="admin-auth-form">
+        <div class="form-group">
+          <label for="admin-passcode">Passcode</label>
+          <div class="passcode-input-wrapper">
+            <input type="password" id="admin-passcode" placeholder="Enter password (default: crafts)" required autocomplete="current-password">
+            <button type="button" class="toggle-password" id="toggle-auth-password">
+              <i data-lucide="eye"></i>
+            </button>
+          </div>
+          <span class="error-message hidden" id="auth-error-msg">Incorrect passcode. Please try again.</span>
+        </div>
+        <button type="submit" class="submit-btn">Unlock Dashboard <i data-lucide="unlock"></i></button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin View (Authenticated) -->
+  <main id="admin-view" class="view-section hidden">
+    <div class="admin-container">
+      <!-- Admin Sidebar / Navigation -->
+      <aside class="admin-sidebar">
+        <div class="admin-profile">
+          <div class="admin-avatar">
+            <i data-lucide="user-cog"></i>
+          </div>
+          <div class="admin-details">
+            <h3>Shop Owner</h3>
+            <span class="admin-status"><span class="status-dot"></span> Online</span>
+          </div>
+        </div>
+        <nav class="admin-nav-menu">
+          <button class="admin-menu-btn active" data-tab="admin-products"><i data-lucide="package"></i> Products</button>
+          <button class="admin-menu-btn" data-tab="admin-add-product"><i data-lucide="plus-circle"></i> Add Product</button>
+          <button class="admin-menu-btn" data-tab="admin-settings"><i data-lucide="sliders"></i> Shop Settings</button>
+          <button class="admin-menu-btn danger" id="admin-logout-btn"><i data-lucide="log-out"></i> Exit Admin</button>
+        </nav>
+      </aside>
+
+      <!-- Admin Main Content Area -->
+      <section class="admin-content">
+        <!-- Products Tab -->
+        <div class="admin-tab-content active" id="tab-admin-products">
+          <div class="admin-tab-header">
+            <div>
+              <h2>Manage Products</h2>
+              <p>View, edit, or delete items currently published in your boutique store.</p>
+            </div>
+            <button class="action-btn primary-btn" id="go-to-add-product-btn">
+              <i data-lucide="plus"></i> Add New Product
+            </button>
+          </div>
+          
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>WhatsApp Target</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-products-table-body">
+                <!-- Populated dynamically by app.js -->
+              </tbody>
+            </table>
+            
+            <div id="admin-empty-table" class="empty-state hidden">
+              <i data-lucide="package" class="empty-icon"></i>
+              <h3>No products yet</h3>
+              <p>Get started by adding your first handmade craft creation!</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add/Edit Product Tab -->
+        <div class="admin-tab-content hidden" id="tab-admin-add-product">
+          <div class="admin-tab-header">
+            <div>
+              <h2 id="product-form-title">Add New Craft Product</h2>
+              <p id="product-form-desc">Provide details below to list a new masterpiece in your catalog.</p>
+            </div>
+            <button class="action-btn secondary-btn" id="cancel-edit-btn">
+              <i data-lucide="arrow-left"></i> Back to Products
+            </button>
+          </div>
+
+          <form id="product-form" class="admin-form">
+            <!-- Form Hidden Fields -->
+            <input type="hidden" id="edit-product-id" value="">
+
+            <div class="form-row">
+              <div class="form-group col-8">
+                <label for="product-title">Craft Title *</label>
+                <input type="text" id="product-title" placeholder="e.g. Boho Macramé Wall Hanging" required>
+              </div>
+              <div class="form-group col-4">
+                <label for="product-category">Category *</label>
+                <select id="product-category" required>
+                  <option value="" disabled selected>Select Category</option>
+                  <option value="Ceramics">Ceramics</option>
+                  <option value="Textiles">Textiles</option>
+                  <option value="Woodwork">Woodwork</option>
+                  <option value="Candles">Candles</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-6">
+                <label for="product-price">Price *</label>
+                <div class="price-input-wrapper">
+                  <span class="currency-symbol">$</span>
+                  <input type="number" id="product-price" placeholder="49.99" step="0.01" min="0" required>
+                </div>
+              </div>
+              <div class="form-group col-6">
+                <label for="product-badge">Product Badge (Optional)</label>
+                <input type="text" id="product-badge" placeholder="e.g. Best Seller, Limited Edition, New">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="product-description">Description *</label>
+              <textarea id="product-description" rows="4" placeholder="Describe the crafting process, materials used, size dimensions, care instructions, and any unique features that make it special..." required></textarea>
+            </div>
+
+            <!-- Image Picker Group -->
+            <div class="form-group">
+              <label>Product Image *</label>
+              <div class="image-upload-options">
+                <button type="button" class="upload-mode-btn active" id="mode-file-btn">Upload Image File</button>
+                <button type="button" class="upload-mode-btn" id="mode-url-btn">Image URL</button>
+                <button type="button" class="upload-mode-btn" id="mode-sample-btn">Select Preset Image</button>
+              </div>
+
+              <!-- Upload File Option -->
+              <div id="image-file-group" class="image-input-container">
+                <div class="drag-drop-area" id="drag-drop-area">
+                  <i data-lucide="image-plus" class="upload-icon"></i>
+                  <p>Drag and drop your craft image here, or <span>browse files</span></p>
+                  <span class="file-info-label">Supports JPEG, PNG, WEBP (Max 5MB)</span>
+                  <input type="file" id="product-image-file" accept="image/*" class="hidden-file-input">
+                </div>
+              </div>
+
+              <!-- Image URL Option -->
+              <div id="image-url-group" class="image-input-container hidden">
+                <input type="url" id="product-image-url" placeholder="https://images.unsplash.com/... or similar web URL">
+              </div>
+
+              <!-- Sample Presets Option -->
+              <div id="image-sample-group" class="image-input-container hidden">
+                <div class="presets-grid">
+                  <div class="preset-card" data-url="images/macrame_wall_hanging.jpg">
+                    <img src="images/macrame_wall_hanging.jpg" alt="Preset Macramé">
+                    <span>Macramé Wall Hanging</span>
+                  </div>
+                  <div class="preset-card" data-url="images/ceramic_mug.jpg">
+                    <img src="images/ceramic_mug.jpg" alt="Preset Ceramic">
+                    <span>Ceramic Speckled Mug</span>
+                  </div>
+                  <div class="preset-card" data-url="images/wooden_jewelry_box.jpg">
+                    <img src="images/wooden_jewelry_box.jpg" alt="Preset Box">
+                    <span>Hand-carved Wooden Box</span>
+                  </div>
+                  <div class="preset-card" data-url="images/organic_soy_candle.jpg">
+                    <img src="images/organic_soy_candle.jpg" alt="Preset Candle">
+                    <span>Soy Botanical Candle</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Image Preview Box -->
+              <div class="image-preview-wrapper hidden" id="image-preview-wrapper">
+                <span>Image Preview:</span>
+                <div class="preview-box">
+                  <img id="image-preview-img" src="" alt="Preview">
+                  <button type="button" class="remove-preview-btn" id="remove-preview-btn">
+                    <i data-lucide="trash-2"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="product-whatsapp">Custom WhatsApp Number for this Product (Optional)</label>
+              <input type="text" id="product-whatsapp" placeholder="Leave blank to use default shop WhatsApp number">
+              <small class="help-text">Useful if different products are managed by different artists, or if you want custom forwarding. Include country code (e.g. +1234567890).</small>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="submit-btn primary-btn" id="save-product-btn">Save Product Listing <i data-lucide="check"></i></button>
+              <button type="button" class="action-btn secondary-btn" id="reset-product-form-btn">Reset Form</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Settings Tab -->
+        <div class="admin-tab-content hidden" id="tab-admin-settings">
+          <div class="admin-tab-header">
+            <div>
+              <h2>Boutique Shop Settings</h2>
+              <p>Configure default settings for checkout routing, branding, and security credentials.</p>
+            </div>
+          </div>
+
+          <form id="settings-form" class="admin-form">
+            <div class="settings-section">
+              <h3><i data-lucide="store"></i> Store Branding</h3>
+              
+              <div class="form-group">
+                <label for="settings-shop-name">Shop Name</label>
+                <input type="text" id="settings-shop-name" placeholder="CraftyHand" required>
+              </div>
+
+              <div class="form-group">
+                <label for="settings-shop-tagline">Shop Tagline (Hero Title)</label>
+                <input type="text" id="settings-shop-tagline" placeholder="Beautiful Handcrafted Creations - Made with Love" required>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h3><i data-lucide="message-square"></i> WhatsApp Checkout Integration</h3>
+              
+              <div class="form-group">
+                <label for="settings-whatsapp">Default WhatsApp Contact Number *</label>
+                <input type="text" id="settings-whatsapp" placeholder="e.g. +1234567890" required>
+                <small class="help-text">Orders will be sent to this number. Make sure to specify the complete international country code without spaces, leading zeros, or symbols (e.g. 14155552671 or 919876543210).</small>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h3><i data-lucide="key"></i> Security Passcode</h3>
+              
+              <div class="form-row">
+                <div class="form-group col-6">
+                  <label for="settings-passcode">Change Admin Passcode</label>
+                  <div class="passcode-input-wrapper">
+                    <input type="password" id="settings-passcode" placeholder="Enter new passcode" autocomplete="new-password">
+                    <button type="button" class="toggle-password" id="toggle-settings-password">
+                      <i data-lucide="eye"></i>
+                    </button>
+                  </div>
+                  <small class="help-text">Leave blank to keep current passcode.</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h3><i data-lucide="database"></i> System Operations</h3>
+              <div class="system-actions">
+                <button type="button" class="system-btn warning-btn" id="btn-load-samples">
+                  <i data-lucide="rotate-ccw"></i> Restore Default Sample Products
+                </button>
+                <button type="button" class="system-btn danger-btn" id="btn-clear-database">
+                  <i data-lucide="trash-2"></i> Wipe All Store Data
+                </button>
+              </div>
+              <small class="help-text text-danger">Warning: Wiping all store data will permanently delete your custom products and reset your configurations.</small>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="submit-btn primary-btn">Save Configurations <i data-lucide="save"></i></button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Product Detail Modal (WhatsApp Checkout Builder) -->
+  <div class="modal-overlay hidden" id="product-detail-modal">
+    <div class="modal-content detail-modal">
+      <button class="modal-close" id="detail-modal-close"><i data-lucide="x"></i></button>
+      <div class="product-modal-layout">
+        
+        <!-- Image Box -->
+        <div class="modal-image-panel">
+          <span class="modal-product-badge" id="modal-badge">Best Seller</span>
+          <img id="modal-image" src="" alt="Product Image">
+        </div>
+
+        <!-- Details Box -->
+        <div class="modal-details-panel">
+          <div class="modal-product-header">
+            <span class="modal-category" id="modal-category">Ceramics</span>
+            <h2 class="modal-title" id="modal-title">Rustic Ceramic Coffee Mug</h2>
+            <div class="modal-price" id="modal-price">$24.00</div>
+          </div>
+          
+          <div class="modal-description-wrapper">
+            <h3>Description</h3>
+            <p id="modal-description">Product description goes here.</p>
+          </div>
+
+          <!-- Checkout Configuration Form -->
+          <form id="whatsapp-order-form" class="whatsapp-order-form">
+            <h3 class="customization-title"><i data-lucide="paint-brush"></i> Personalize Your Order</h3>
+            
+            <div class="form-row">
+              <!-- Custom Note -->
+              <div class="form-group col-12">
+                <label for="order-note">Customization Note / Special Requests</label>
+                <textarea id="order-note" rows="2" placeholder="e.g. Please paint initials 'K.S' on the bottom, or specify custom color/dimensions..."></textarea>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <!-- Quantity -->
+              <div class="form-group col-6">
+                <label for="order-quantity">Quantity</label>
+                <div class="quantity-selector">
+                  <button type="button" class="qty-btn" id="qty-minus-btn"><i data-lucide="minus"></i></button>
+                  <input type="number" id="order-quantity" value="1" min="1" max="99" required>
+                  <button type="button" class="qty-btn" id="qty-plus-btn"><i data-lucide="plus"></i></button>
+                </div>
+              </div>
+              
+              <!-- Gift Wrap -->
+              <div class="form-group col-6 checkbox-group">
+                <label class="checkbox-container">
+                  <input type="checkbox" id="order-gift-wrap">
+                  <span class="checkmark"></span>
+                  Add Gift Wrapping (+$2.50)
+                </label>
+              </div>
+            </div>
+
+            <!-- Order Total Calculator -->
+            <div class="order-summary-box">
+              <div class="summary-line">
+                <span>Subtotal:</span>
+                <span id="summary-subtotal">$0.00</span>
+              </div>
+              <div class="summary-line" id="summary-gift-wrap-line">
+                <span>Gift Wrapping:</span>
+                <span id="summary-gift-wrap-fee">$0.00</span>
+              </div>
+              <div class="summary-line total-line">
+                <span>Total Amount:</span>
+                <span id="summary-total">$0.00</span>
+              </div>
+            </div>
+
+            <!-- Checkout Action Buttons -->
+            <div class="modal-actions">
+              <button type="submit" class="checkout-btn" id="btn-open-whatsapp">
+                <i data-lucide="message-square" class="whatsapp-icon"></i> Order on WhatsApp
+              </button>
+              <button type="button" class="action-btn secondary-btn" id="btn-back-to-store">
+                Continue Shopping
+              </button>
+            </div>
+            <p class="whatsapp-info-tip"><i data-lucide="info"></i> Clicking the order button will open a prefilled chat message to the artisan. You can review the details in WhatsApp before sending.</p>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Footer -->
+  <footer class="main-footer">
+    <div class="footer-container">
+      <div class="footer-branding">
+        <a href="#" class="logo">
+          <i data-lucide="sparkles" class="logo-icon"></i>
+          <span id="footer-shop-name">CraftyHand</span>
+        </a>
+        <p>Bringing authentic handcrafted elegance to modern spaces. Hand-carved, hand-woven, hand-poured.</p>
+      </div>
+      <div class="footer-links">
+        <h4>How it Works</h4>
+        <ul>
+          <li><span class="step-badge">1</span> Browse artisan items</li>
+          <li><span class="step-badge">2</span> Customize options</li>
+          <li><span class="step-badge">3</span> Checkout via WhatsApp chat</li>
+          <li><span class="step-badge">4</span> Pay & receive tracking</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 CraftyHand Boutique. Created with passion. Powered by Antigravity AI.</p>
+    </div>
+  </footer>
+
+  <!-- Javascript File -->
+  <script src="app.js"></script>
+</body>
+</html>
