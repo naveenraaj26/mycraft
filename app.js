@@ -56,7 +56,7 @@ const DEFAULT_SETTINGS = {
 };
 
 // Set to "/check-location" for local server, or your Google Apps Script URL for cloud deployment
-const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbx8AWFeevJZ9q4nfg5yBsrAYv5acMTttH4onBkB7j3Wh0riHQrSrljUI2iaothcw_EZ/exec";
+const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbx002CPk1TgIjuxCmE3hZ5jj_R4fJfUCuyahWultxOzF3wJemUZfDAyLE7pbD6Ne9TG/exec";
 
 // --- Application State ---
 let products = [];
