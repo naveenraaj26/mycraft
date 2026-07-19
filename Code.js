@@ -8,25 +8,33 @@
 
 // Apps Script execution entry point
 function doPost(e) {
+  var sheet;
+  try {
+    sheet = SpreadsheetApp.openById("12lQkC2RYK1p2CqvNO8RkkvUEBJcDsq2YeA_lmGGZUMY").getSheets()[0];
+    sheet.appendRow([new Date(), "DEBUG", "doPost started execution"]);
+  } catch (err) {
+    // If opening sheet fails, we can't write logs. Return error response.
+    return ContentService.createTextOutput(JSON.stringify({
+      allowed: false,
+      error: "Failed to open Spreadsheet: " + err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   try {
     // Parse incoming payload
-    // Using text/plain content to prevent CORS preflight OPTIONS requests from blockages
+    if (!e || !e.postData || !e.postData.contents) {
+      sheet.appendRow([new Date(), "DEBUG ERROR", "postData is empty or undefined"]);
+      throw new Error("POST request contains no postData contents.");
+    }
+    
     var data = JSON.parse(e.postData.contents);
     var lat = Number(data.latitude);
     var lon = Number(data.longitude);
     
+    sheet.appendRow([new Date(), "DEBUG PARSED", "Lat: " + lat + ", Lon: " + lon]);
+
     // Approximate Bounding Box coordinates for India
-    // Latitude: ~8.4° N to ~37.6° N
-    // Longitude: ~68.7° E to ~97.25° E
     var is_in_india = (8.4 <= lat && lat <= 37.6) && (68.7 <= lon && lon <= 97.25);
-    
-    // Append coordinates directly to the Google Sheet (opening by ID and using getSheets()[0] for context-free stability)
-    var sheet = SpreadsheetApp.openById("12lQkC2RYK1p2CqvNO8RkkvUEBJcDsq2YeA_lmGGZUMY").getSheets()[0];
-    
-    // If sheet is empty, add headers first
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow(["Timestamp", "Latitude", "Longitude", "Status"]);
-    }
     
     var statusText = is_in_india ? "Location Matched: India" : "Location Rejected: Outside India";
     sheet.appendRow([new Date(), lat, lon, statusText]);
@@ -44,11 +52,11 @@ function doPost(e) {
       };
     }
     
-    // Return response JSON
     return ContentService.createTextOutput(JSON.stringify(response))
       .setMimeType(ContentService.MimeType.JSON);
       
   } catch (error) {
+    sheet.appendRow([new Date(), "DEBUG EXCEPTION", error.toString()]);
     return ContentService.createTextOutput(JSON.stringify({ 
       allowed: false, 
       error: error.toString(),
@@ -67,7 +75,12 @@ function doGet(e) {
 
 // Helper to trigger Google Sheets OAuth permissions dialog
 function authorizeScript() {
-  var sheet = SpreadsheetApp.openById("12lQkC2RYK1p2CqvNO8RkkvUEBJcDsq2YeA_lmGGZUMY");
+  var sheet;
+  try {
+    sheet = SpreadsheetApp.getActiveSpreadsheet();
+  } catch (err) {
+    sheet = SpreadsheetApp.openById("12lQkC2RYK1p2CqvNO8RkkvUEBJcDsq2YeA_lmGGZUMY");
+  }
   if (sheet) {
     Logger.log("Success! Script authorized to access Google Sheet: " + sheet.getName());
   }
