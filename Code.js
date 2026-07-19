@@ -63,3 +63,11 @@ function doGet(e) {
     message: "CraftyHand Delivery Feasibility API is online!" 
   })).setMimeType(ContentService.MimeType.JSON);
 }
+
+// Helper to trigger Google Sheets OAuth permissions dialog
+function authorizeScript() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (sheet) {
+    Logger.log("Success! Script authorized to access Google Sheet: " + sheet.getName());
+  }
+}
