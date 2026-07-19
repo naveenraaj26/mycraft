@@ -85,3 +85,18 @@ function authorizeScript() {
     Logger.log("Success! Script authorized to access Google Sheet: " + sheet.getName());
   }
 }
+
+// Debug helper to run doPost manually in the Google editor
+function testDoPost() {
+  var mockEvent = {
+    postData: {
+      contents: JSON.stringify({ latitude: 28.6139, longitude: 77.2090 })
+    }
+  };
+  try {
+    var res = doPost(mockEvent);
+    Logger.log("doPost Response: " + res.getContent());
+  } catch (err) {
+    Logger.log("doPost Failed: " + err.toString());
+  }
+}
