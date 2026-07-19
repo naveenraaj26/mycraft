@@ -1,0 +1,6 @@
+# Ignore everything by default
+**/*
+
+# Allow only these script files to be pushed
+!Code.js
+!appsscript.json
