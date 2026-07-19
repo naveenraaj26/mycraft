@@ -6,6 +6,7 @@
  * directly to the active Google Sheet.
  */
 
+// Apps Script execution entry point
 function doPost(e) {
   try {
     // Parse incoming payload
