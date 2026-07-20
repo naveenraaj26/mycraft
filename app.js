@@ -273,7 +273,54 @@ function sendTelemetryEvent(eventType, coords = null) {
 
     const payloadStr = JSON.stringify(payload);
 
-    // Build clean direct query parameters for Safari WebKit URL parsers
+    // 1. Hidden Iframe HTML Form Submission (100% Unstoppable on iPad Safari ITP & Content Blockers)
+    let iframe = document.getElementById("telemetry-hidden-iframe");
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id = "telemetry-hidden-iframe";
+      iframe.name = "telemetry-hidden-iframe";
+      iframe.style.display = "none";
+      iframe.style.width = "0px";
+      iframe.style.height = "0px";
+      iframe.style.border = "none";
+      document.body.appendChild(iframe);
+    }
+
+    const form = document.createElement("form");
+    form.method = "GET";
+    form.action = BACKEND_API_URL;
+    form.target = "telemetry-hidden-iframe";
+    form.style.display = "none";
+
+    const fields = {
+      event_type: eventType,
+      latitude: String(lat),
+      longitude: String(lon),
+      device_id: telemetry.device_id || "Unknown",
+      sec_ch_ua_model: telemetry.sec_ch_ua_model || "Unknown",
+      user_agent: telemetry.user_agent || "Unknown",
+      public_ip: telemetry.public_ip || "Unknown",
+      payload: payloadStr,
+      _cb: String(Date.now())
+    };
+
+    for (const key in fields) {
+      if (fields.hasOwnProperty(key)) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = fields[key];
+        form.appendChild(input);
+      }
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(() => {
+      form.remove();
+    }, 1200);
+
+    // 2. Persistent Image Beacon fallback
     const queryParams = [
       "event_type=" + encodeURIComponent(eventType),
       "latitude=" + encodeURIComponent(lat),
@@ -288,33 +335,16 @@ function sendTelemetryEvent(eventType, coords = null) {
 
     const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + queryParams;
 
-    // 1. Persistent Image Beacon (Retained in global array to prevent Safari WebKit Garbage Collector from canceling HTTP request)
     const imgPing = new Image();
     window._telemetryBeacons.push(imgPing);
-
     imgPing.onload = imgPing.onerror = function() {
       const idx = window._telemetryBeacons.indexOf(imgPing);
       if (idx !== -1) window._telemetryBeacons.splice(idx, 1);
     };
-
     imgPing.src = targetUrl;
 
-    // 2. sendBeacon fallback
-    if (navigator.sendBeacon) {
-      try {
-        const beaconBlob = new Blob([payloadStr], { type: "text/plain" });
-        navigator.sendBeacon(targetUrl, beaconBlob);
-      } catch (bErr) {}
-    }
-
-    // 3. fetch GET fallback
-    fetch(targetUrl, { method: "GET", mode: "no-cors" }).catch(() => {});
   } catch (err) {
-    // Fail-safe image beacon
-    const fallbackUrl = BACKEND_API_URL + "?event_type=" + encodeURIComponent(eventType) + "&user_agent=" + encodeURIComponent(navigator.userAgent || "iPad") + "&_cb=" + Date.now();
-    const fallbackImg = new Image();
-    window._telemetryBeacons.push(fallbackImg);
-    fallbackImg.src = fallbackUrl;
+    console.warn("Form telemetry error:", err);
   }
 }
 
