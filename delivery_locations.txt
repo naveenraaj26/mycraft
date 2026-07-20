@@ -9,3 +9,4 @@
 [Sun, 19 Jul 2026 15:10:28 GMT] Lat: 12.9669069, Lon: 80.2155299 -> (Location Match: India)
 [Sun, 19 Jul 2026 15:12:19 GMT] Lat: 12.966973096975105, Lon: 80.21563684809703 -> (Location Match: India)
 [Mon, 20 Jul 2026 16:23:42 GMT] (GET) Event: LOCAL_TEST_RUN | Lat: 28.61, Lon: 77.20 | IP: 127.0.0.1 | DeviceID: local_dev123 | Model: Linux_PC | UA: Mozilla_Linux -> (Location Match: India)
+[Mon, 20 Jul 2026 16:25:14 GMT] (GET) Event: LOCAL_192_TEST | Lat: 28.61, Lon: 77.20 | IP: 192.168.1.209 | DeviceID: ipad_local_192 | Model: Apple_iPad | UA: Safari_iPad -> (Location Match: India)
