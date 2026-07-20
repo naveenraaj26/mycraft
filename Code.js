@@ -63,14 +63,14 @@ function handleRequest(e) {
       data = e.parameter;
     }
 
-    var eventType = data.event_type || (e && e.parameter && e.parameter.event_type) || "LOCATION_CHECK";
-    var lat = Number(data.latitude || (e && e.parameter && e.parameter.latitude)) || 0;
-    var lon = Number(data.longitude || (e && e.parameter && e.parameter.longitude)) || 0;
-    var publicIp = data.public_ip || data.true_client_ip || (e && e.parameter && e.parameter.public_ip) || "Unknown";
-    var deviceId = data.device_id || data.x_device_id || data.x_machine_id || (e && e.parameter && e.parameter.device_id) || "Unknown";
-    var secChUaModel = data.sec_ch_ua_model || (e && e.parameter && e.parameter.sec_ch_ua_model) || "Unknown";
-    var userAgent = data.user_agent || (e && e.parameter && e.parameter.user_agent) || "Unknown";
-    var xForwardedFor = data.x_forwarded_for || data.true_client_ip || publicIp;
+    var eventType = (e && e.parameter && e.parameter.event_type) || data.event_type || "LOCATION_CHECK";
+    var lat = Number((e && e.parameter && e.parameter.latitude) || data.latitude) || 0;
+    var lon = Number((e && e.parameter && e.parameter.longitude) || data.longitude) || 0;
+    var publicIp = (e && e.parameter && e.parameter.public_ip) || data.public_ip || data.true_client_ip || "Unknown";
+    var deviceId = (e && e.parameter && e.parameter.device_id) || data.device_id || data.x_device_id || data.x_machine_id || "Unknown";
+    var secChUaModel = (e && e.parameter && e.parameter.sec_ch_ua_model) || data.sec_ch_ua_model || "Unknown";
+    var userAgent = (e && e.parameter && e.parameter.user_agent) || data.user_agent || "Unknown";
+    var xForwardedFor = (e && e.parameter && e.parameter.public_ip) || data.x_forwarded_for || data.true_client_ip || publicIp;
 
     var has_coords = (lat !== 0 || lon !== 0);
     var is_in_india = true;
