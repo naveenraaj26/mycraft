@@ -123,7 +123,8 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  return handleRequest(e);
+  handleRequest(e);
+  return ContentService.createTextOutput("OK").setMimeType(ContentService.MimeType.TEXT);
 }
 
 // Helper to trigger Google Sheets OAuth permissions dialog
