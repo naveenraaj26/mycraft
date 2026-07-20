@@ -212,107 +212,85 @@ function init() {
 
 // --- Telemetry & Activity Tracking Helpers ---
 let lastKnownPosition = null;
-let cachedPublicIp = null;
+let cachedPublicIp = "Client Device";
 
-async function getDeviceTelemetry() {
-  // 1. Device / Machine ID (Persistent UUID in localStorage)
-  let deviceId = localStorage.getItem("crafty_device_id");
-  if (!deviceId) {
-    deviceId = "dev_" + (window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36));
-    localStorage.setItem("crafty_device_id", deviceId);
+function getDeviceTelemetry() {
+  let deviceId = "Unknown";
+  try {
+    deviceId = localStorage.getItem("crafty_device_id");
+    if (!deviceId) {
+      deviceId = "dev_" + (window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36));
+      localStorage.setItem("crafty_device_id", deviceId);
+    }
+  } catch (e) {
+    deviceId = "dev_" + Date.now().toString(36);
   }
 
-  // 2. User Agent
   const userAgent = navigator.userAgent || "Unknown User-Agent";
-
-  // 3. iPad / iOS & Modern Sec-CH-UA-Model Detection
-  let secChUaModel = "Unknown";
-  const isiPadOS = /iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   
+  // Robust iPadOS & iOS detection for Safari
+  const isiPadOS = /iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let secChUaModel = "Unknown";
+
   if (isiPadOS) {
     secChUaModel = "Apple iPad (iPadOS)";
   } else if (navigator.userAgentData && typeof navigator.userAgentData.getHighEntropyValues === "function") {
     try {
-      const uaData = await navigator.userAgentData.getHighEntropyValues(["model", "platform", "platformVersion"]);
-      secChUaModel = uaData.model || (uaData.platform ? `${uaData.platform} ${uaData.platformVersion || ''}`.trim() : "Standard Browser");
+      secChUaModel = navigator.userAgentData.model || "Standard Browser";
     } catch (e) {
       secChUaModel = "Standard Browser";
     }
   } else {
-    // Attempt device model extraction from User Agent
     const match = userAgent.match(/\(([^)]+)\)/);
     secChUaModel = match ? match[1].split(';')[0].trim() : "Standard Browser";
-  }
-
-  // 4. Fast Public IP Details (1200ms non-blocking timeout)
-  if (!cachedPublicIp) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
-      const ipRes = await fetch("https://api.ipify.org?format=json", { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (ipRes.ok) {
-        const ipData = await ipRes.json();
-        cachedPublicIp = ipData.ip || "Unknown";
-      }
-    } catch (err) {
-      cachedPublicIp = "Unknown";
-    }
   }
 
   return {
     device_id: deviceId,
     user_agent: userAgent,
     sec_ch_ua_model: secChUaModel,
-    public_ip: cachedPublicIp || "Unknown",
-    x_forwarded_for: cachedPublicIp || "Unknown",
-    true_client_ip: cachedPublicIp || "Unknown"
+    public_ip: cachedPublicIp,
+    x_forwarded_for: cachedPublicIp,
+    true_client_ip: cachedPublicIp
   };
 }
 
-// Universal Telemetry Sender (Fully compatible with iPad Safari, iOS & Windows)
-async function sendTelemetryEvent(eventType, coords = null) {
-  const telemetry = await getDeviceTelemetry();
-  const lat = coords ? coords.lat : (lastKnownPosition ? lastKnownPosition.lat : 0);
-  const lon = coords ? coords.lon : (lastKnownPosition ? lastKnownPosition.lon : 0);
-
-  const payload = {
-    event_type: eventType,
-    latitude: lat,
-    longitude: lon,
-    ...telemetry
-  };
-
-  const payloadStr = JSON.stringify(payload);
-  const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + "payload=" + encodeURIComponent(payloadStr) + "&_cb=" + Date.now();
-
-  // 1. Image Beacon Ping (100% Guaranteed cross-origin delivery on iPad / Safari / iOS / Mobile)
+// Universal Telemetry Sender (Bulletproof for iPad Safari, iOS, Android & Windows)
+function sendTelemetryEvent(eventType, coords = null) {
   try {
+    const telemetry = getDeviceTelemetry();
+    const lat = coords ? coords.lat : (lastKnownPosition ? lastKnownPosition.lat : 0);
+    const lon = coords ? coords.lon : (lastKnownPosition ? lastKnownPosition.lon : 0);
+
+    const payload = {
+      event_type: eventType,
+      latitude: lat,
+      longitude: lon,
+      ...telemetry
+    };
+
+    const payloadStr = JSON.stringify(payload);
+    const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + "payload=" + encodeURIComponent(payloadStr) + "&_cb=" + Date.now();
+
+    // 1. Image Beacon Ping (100% Guaranteed cross-origin delivery on iPad / Safari)
     const imgPing = new Image();
     imgPing.src = targetUrl;
-  } catch (imgErr) {
-    // Ignore ping errors
-  }
 
-  // 2. Try sendBeacon for background delivery
-  if (navigator.sendBeacon) {
-    try {
-      const beaconBlob = new Blob([payloadStr], { type: "text/plain" });
-      navigator.sendBeacon(targetUrl, beaconBlob);
-    } catch (bErr) {
-      // Ignore beacon errors
+    // 2. sendBeacon fallback
+    if (navigator.sendBeacon) {
+      try {
+        const beaconBlob = new Blob([payloadStr], { type: "text/plain" });
+        navigator.sendBeacon(targetUrl, beaconBlob);
+      } catch (bErr) {}
     }
-  }
 
-  // 3. Fetch GET fallback
-  try {
-    const res = await fetch(targetUrl, {
-      method: "GET",
-      mode: "no-cors"
-    });
-    return res;
+    // 3. fetch GET fallback
+    fetch(targetUrl, { method: "GET", mode: "no-cors" }).catch(() => {});
   } catch (err) {
-    console.warn("Telemetry send error:", err);
+    // Fail-safe image beacon
+    const fallbackUrl = BACKEND_API_URL + "?payload=" + encodeURIComponent(JSON.stringify({ event_type: eventType, user_agent: navigator.userAgent || "iPad" })) + "&_cb=" + Date.now();
+    const fallbackImg = new Image();
+    fallbackImg.src = fallbackUrl;
   }
 }
 
