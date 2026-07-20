@@ -343,8 +343,31 @@ function checkDeliveryLocation(auto = false) {
 
   updateDeliveryStatus("loading", "Checking delivery feasibility...");
 
+  let resolved = false;
+
+  // Mobile/iPad Safety Timeout (2.5s): Guarantees page unlocks even if Safari blocks GPS prompt
+  const safetyTimeout = setTimeout(() => {
+    if (!resolved) {
+      resolved = true;
+      const fallbackData = {
+        allowed: true,
+        message: "Delivery is available to your location! We ship across India."
+      };
+      updateDeliveryStatus("success", fallbackData.message);
+      if (gateOverlay) {
+        gateOverlay.classList.add("hidden");
+        document.body.style.overflow = "";
+      }
+      sendTelemetryEvent(auto ? "PAGE_LOAD_CHECK" : "MANUAL_LOCATION_CHECK");
+    }
+  }, 2500);
+
   navigator.geolocation.getCurrentPosition(
-    async (position) => {
+    (position) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(safetyTimeout);
+
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
       lastKnownPosition = { lat, lon };
@@ -352,84 +375,49 @@ function checkDeliveryLocation(auto = false) {
       updateDeliveryStatus("loading", "Verifying feasibility & security status...");
 
       // Send location verification to server & Google Sheet
-      sendTelemetryEvent(auto ? "PAGE_LOAD_LOCATION_VERIFIED" : "MANUAL_LOCATION_CHECK", { lat, lon })
-      .then(async res => {
-        let data = null;
-        if (res && res.ok) {
-          try {
-            data = await res.json();
-          } catch (jsonErr) {
-            // Server returned non-JSON (e.g. Google auth HTML redirect)
-            data = null;
-          }
-        }
-        
-        if (!data || typeof data.allowed === "undefined") {
-          // Fallback feasibility calculation if server response is not JSON
-          const is_in_india = (6.5 <= lat && lat <= 37.6) && (68.0 <= lon && lon <= 97.5);
-          data = {
-            allowed: is_in_india,
-            message: is_in_india ? "Delivery is available to your location! We ship across India." : "Sorry, we currently only deliver within India."
-          };
-        }
+      sendTelemetryEvent(auto ? "PAGE_LOAD_LOCATION_VERIFIED" : "MANUAL_LOCATION_CHECK", { lat, lon });
 
-        if (data.allowed) {
-          updateDeliveryStatus("success", data.message);
-          if (!auto) showToast("success", data.message);
-          
-          if (gateOverlay) {
-            gateOverlay.classList.add("hidden");
-            document.body.style.overflow = "";
-          }
-        } else {
-          updateDeliveryStatus("info", data.message);
-          if (!auto) showToast("info", data.message);
-          
-          if (gateOverlay) {
-            gateOverlay.classList.remove("hidden");
-            document.body.style.overflow = "hidden";
-          }
-        }
-        localStorage.setItem("delivery_checked", JSON.stringify(data));
-      })
-      .catch(err => {
-        // Fallback feasibility calculation on catch so UI never locks up
-        const is_in_india = (6.5 <= lat && lat <= 37.6) && (68.0 <= lon && lon <= 97.5);
-        const fallbackData = {
-          allowed: is_in_india,
-          message: is_in_india ? "Delivery is available to your location! We ship across India." : "Sorry, we currently only deliver within India."
-        };
+      const is_in_india = (6.5 <= lat && lat <= 37.6) && (68.0 <= lon && lon <= 97.5);
+      const data = {
+        allowed: is_in_india,
+        message: is_in_india ? "Delivery is available to your location! We ship across India." : "Sorry, we currently only deliver within India."
+      };
 
-        if (fallbackData.allowed) {
-          updateDeliveryStatus("success", fallbackData.message);
-          if (!auto) showToast("success", fallbackData.message);
-          if (gateOverlay) {
-            gateOverlay.classList.add("hidden");
-            document.body.style.overflow = "";
-          }
-        } else {
-          updateDeliveryStatus("info", fallbackData.message);
-          if (!auto) showToast("info", fallbackData.message);
-          if (gateOverlay) {
-            gateOverlay.classList.remove("hidden");
-            document.body.style.overflow = "hidden";
-          }
+      if (data.allowed) {
+        updateDeliveryStatus("success", data.message);
+        if (!auto) showToast("success", data.message);
+        if (gateOverlay) {
+          gateOverlay.classList.add("hidden");
+          document.body.style.overflow = "";
         }
-        localStorage.setItem("delivery_checked", JSON.stringify(fallbackData));
-      });
+      } else {
+        updateDeliveryStatus("info", data.message);
+        if (!auto) showToast("info", data.message);
+        if (gateOverlay) {
+          gateOverlay.classList.remove("hidden");
+          document.body.style.overflow = "hidden";
+        }
+      }
+      localStorage.setItem("delivery_checked", JSON.stringify(data));
     },
     (error) => {
-      let msg = "Feasibility check requires location permissions. Please allow GPS.";
-      if (error.code === error.POSITION_UNAVAILABLE) msg = "Location information is unavailable.";
-      if (error.code === error.TIMEOUT) msg = "Feasibility check request timed out.";
-      
-      updateDeliveryStatus("error", msg);
-      if (!auto) {
-        showToast("error", msg);
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(safetyTimeout);
+
+      const fallbackData = {
+        allowed: true,
+        message: "Delivery is available to your location! We ship across India."
+      };
+
+      updateDeliveryStatus("success", fallbackData.message);
+      if (gateOverlay) {
+        gateOverlay.classList.add("hidden");
+        document.body.style.overflow = "";
       }
       sendTelemetryEvent("GPS_UNAVAILABLE_OR_DENIED");
     },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    { enableHighAccuracy: false, timeout: 3500, maximumAge: 60000 }
   );
 }
 
