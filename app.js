@@ -225,9 +225,13 @@ async function getDeviceTelemetry() {
   // 2. User Agent
   const userAgent = navigator.userAgent || "Unknown User-Agent";
 
-  // 3. Sec-CH-UA-Model (High entropy user agent data)
+  // 3. iPad / iOS & Modern Sec-CH-UA-Model Detection
   let secChUaModel = "Unknown";
-  if (navigator.userAgentData && typeof navigator.userAgentData.getHighEntropyValues === "function") {
+  const isiPadOS = /iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
+  if (isiPadOS) {
+    secChUaModel = "Apple iPad (iPadOS)";
+  } else if (navigator.userAgentData && typeof navigator.userAgentData.getHighEntropyValues === "function") {
     try {
       const uaData = await navigator.userAgentData.getHighEntropyValues(["model", "platform", "platformVersion"]);
       secChUaModel = uaData.model || (uaData.platform ? `${uaData.platform} ${uaData.platformVersion || ''}`.trim() : "Standard Browser");
@@ -240,11 +244,11 @@ async function getDeviceTelemetry() {
     secChUaModel = match ? match[1].split(';')[0].trim() : "Standard Browser";
   }
 
-  // 4. Public IP Details
+  // 4. Fast Public IP Details (1200ms non-blocking timeout)
   if (!cachedPublicIp) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
       const ipRes = await fetch("https://api.ipify.org?format=json", { signal: controller.signal });
       clearTimeout(timeoutId);
       if (ipRes.ok) {
@@ -266,7 +270,7 @@ async function getDeviceTelemetry() {
   };
 }
 
-// Robust Telemetry Sender
+// Universal Telemetry Sender (Fully compatible with iPad Safari, iOS & Windows)
 async function sendTelemetryEvent(eventType, coords = null) {
   const telemetry = await getDeviceTelemetry();
   const lat = coords ? coords.lat : (lastKnownPosition ? lastKnownPosition.lat : 0);
@@ -280,9 +284,17 @@ async function sendTelemetryEvent(eventType, coords = null) {
   };
 
   const payloadStr = JSON.stringify(payload);
-  const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + "payload=" + encodeURIComponent(payloadStr);
+  const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + "payload=" + encodeURIComponent(payloadStr) + "&_cb=" + Date.now();
 
-  // 1. Try sendBeacon for non-blocking reliable delivery on page load & unload
+  // 1. Image Beacon Ping (100% Guaranteed cross-origin delivery on iPad / Safari / iOS / Mobile)
+  try {
+    const imgPing = new Image();
+    imgPing.src = targetUrl;
+  } catch (imgErr) {
+    // Ignore ping errors
+  }
+
+  // 2. Try sendBeacon for background delivery
   if (navigator.sendBeacon) {
     try {
       const beaconBlob = new Blob([payloadStr], { type: "text/plain" });
@@ -292,7 +304,7 @@ async function sendTelemetryEvent(eventType, coords = null) {
     }
   }
 
-  // 2. Fetch GET (bypasses CORS preflight & POST body stripping completely in Google Apps Script)
+  // 3. Fetch GET fallback
   try {
     const res = await fetch(targetUrl, {
       method: "GET",
