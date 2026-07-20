@@ -280,15 +280,23 @@ async function sendTelemetryEvent(eventType, coords = null) {
   };
 
   const payloadStr = JSON.stringify(payload);
+  const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + "payload=" + encodeURIComponent(payloadStr);
 
+  // 1. Try sendBeacon for non-blocking reliable delivery on page load & unload
+  if (navigator.sendBeacon) {
+    try {
+      const beaconBlob = new Blob([payloadStr], { type: "text/plain" });
+      navigator.sendBeacon(targetUrl, beaconBlob);
+    } catch (bErr) {
+      // Ignore beacon errors
+    }
+  }
+
+  // 2. Fetch GET (bypasses CORS preflight & POST body stripping completely in Google Apps Script)
   try {
-    // Append payload to URL query parameter as bulletproof fallback in case post body is stripped
-    const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + "payload=" + encodeURIComponent(payloadStr);
-
     const res = await fetch(targetUrl, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: payloadStr
+      method: "GET",
+      mode: "no-cors"
     });
     return res;
   } catch (err) {

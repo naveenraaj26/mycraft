@@ -8,7 +8,7 @@
  */
 
 // Apps Script execution entry point
-function doPost(e) {
+function handleRequest(e) {
   var sheet;
   try {
     try {
@@ -40,28 +40,44 @@ function doPost(e) {
   }
 
   try {
-    // Parse incoming payload
-    if (!e || !e.postData || !e.postData.contents) {
-      sheet.appendRow([new Date(), "ERROR", "-", "-", "-", "-", "-", "-", "-", "POST request contains no postData contents."]);
-      throw new Error("POST request contains no postData contents.");
+    // Multi-fallback payload parser
+    var rawContents = "";
+    if (e && e.postData && e.postData.contents) {
+      rawContents = e.postData.contents;
+    } else if (e && e.postData && typeof e.postData.getDataAsString === "function") {
+      rawContents = e.postData.getDataAsString();
+    } else if (e && e.parameter && e.parameter.payload) {
+      rawContents = e.parameter.payload;
+    } else if (e && e.parameter && e.parameter.data) {
+      rawContents = e.parameter.data;
     }
-    
-    var data = JSON.parse(e.postData.contents);
-    var eventType = data.event_type || "LOCATION_CHECK";
-    var lat = Number(data.latitude) || 0;
-    var lon = Number(data.longitude) || 0;
-    var publicIp = data.public_ip || data.true_client_ip || "Unknown";
-    var deviceId = data.device_id || data.x_device_id || data.x_machine_id || "Unknown";
-    var secChUaModel = data.sec_ch_ua_model || "Unknown";
-    var userAgent = data.user_agent || "Unknown";
+
+    var data = {};
+    if (rawContents) {
+      try {
+        data = JSON.parse(rawContents);
+      } catch (pErr) {
+        data = (e && e.parameter) ? e.parameter : {};
+      }
+    } else if (e && e.parameter) {
+      data = e.parameter;
+    }
+
+    var eventType = data.event_type || (e && e.parameter && e.parameter.event_type) || "LOCATION_CHECK";
+    var lat = Number(data.latitude || (e && e.parameter && e.parameter.latitude)) || 0;
+    var lon = Number(data.longitude || (e && e.parameter && e.parameter.longitude)) || 0;
+    var publicIp = data.public_ip || data.true_client_ip || (e && e.parameter && e.parameter.public_ip) || "Unknown";
+    var deviceId = data.device_id || data.x_device_id || data.x_machine_id || (e && e.parameter && e.parameter.device_id) || "Unknown";
+    var secChUaModel = data.sec_ch_ua_model || (e && e.parameter && e.parameter.sec_ch_ua_model) || "Unknown";
+    var userAgent = data.user_agent || (e && e.parameter && e.parameter.user_agent) || "Unknown";
     var xForwardedFor = data.x_forwarded_for || data.true_client_ip || publicIp;
 
     // Approximate Bounding Box coordinates for India
     var is_in_india = (8.4 <= lat && lat <= 37.6) && (68.7 <= lon && lon <= 97.25);
     
     var statusText = is_in_india ? "Location Matched: India" : "Location Rejected: Outside India";
-    if (eventType === "5MIN_ACTIVITY_PING") {
-      statusText = "Activity Ping (" + (is_in_india ? "India" : "Outside India") + ")";
+    if (eventType.indexOf("PING") !== -1 || eventType.indexOf("PAGE_LOAD") !== -1) {
+      statusText = eventType + " (" + (is_in_india ? "India" : "Outside India") + ")";
     }
 
     sheet.appendRow([
@@ -80,7 +96,8 @@ function doPost(e) {
     var response = {
       allowed: is_in_india,
       message: is_in_india ? "Delivery is available to your location! We ship across India." : "Sorry, we currently only deliver within India.",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      loggedRow: sheet.getLastRow()
     };
     
     return ContentService.createTextOutput(JSON.stringify(response))
@@ -96,12 +113,12 @@ function doPost(e) {
   }
 }
 
-// Simple status response for GET requests
+function doPost(e) {
+  return handleRequest(e);
+}
+
 function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({ 
-    status: "active", 
-    message: "CraftyHand Delivery Feasibility & Telemetry API is online!" 
-  })).setMimeType(ContentService.MimeType.JSON);
+  return handleRequest(e);
 }
 
 // Helper to trigger Google Sheets OAuth permissions dialog
