@@ -330,17 +330,14 @@ function checkDeliveryLocation(auto = false) {
   const gateOverlay = document.getElementById("location-gate-overlay");
 
   if (auto) {
-    // If auto checking on load, see if user has already checked
+    // If auto checking on load, see if user has already checked to instantly unblock UI
     const checked = localStorage.getItem("delivery_checked");
     if (checked) {
       const result = JSON.parse(checked);
       updateDeliveryStatus(result.allowed ? "success" : "info", result.message);
-      if (result.allowed) {
-        if (gateOverlay) {
-          gateOverlay.classList.add("hidden");
-          document.body.style.overflow = "";
-        }
-        return;
+      if (result.allowed && gateOverlay) {
+        gateOverlay.classList.add("hidden");
+        document.body.style.overflow = "";
       }
     }
   }
@@ -365,7 +362,7 @@ function checkDeliveryLocation(auto = false) {
       const telemetry = await getDeviceTelemetry();
 
       const payload = {
-        event_type: "LOCATION_CHECK",
+        event_type: auto ? "PAGE_LOAD_CHECK" : "MANUAL_LOCATION_CHECK",
         latitude: lat,
         longitude: lon,
         ...telemetry
