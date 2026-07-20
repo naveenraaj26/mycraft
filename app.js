@@ -358,37 +358,21 @@ function checkDeliveryLocation(auto = false) {
 
   let resolved = false;
 
-  // Mobile/iPad High-Accuracy GPS Window (12.0s): Prioritizes hardware GPS satellite/Wi-Fi lock
-  const safetyTimeout = setTimeout(async () => {
+  // Mobile/iPad High-Accuracy GPS Window (15.0s): Prioritizes hardware GPS satellite/Wi-Fi lock
+  const safetyTimeout = setTimeout(() => {
     if (!resolved) {
       resolved = true;
-      
-      // Attempt IP Geolocation fallback only if hardware GPS times out after 12s
-      let lat = 0, lon = 0;
-      try {
-        const ipGeoRes = await fetch("https://ipapi.co/json/");
-        if (ipGeoRes.ok) {
-          const ipGeoData = await ipGeoRes.json();
-          lat = ipGeoData.latitude || 0;
-          lon = ipGeoData.longitude || 0;
-        }
-      } catch (e) {}
-
-      lastKnownPosition = { lat, lon };
-      const is_in_india = (lat !== 0 && lon !== 0) ? ((6.5 <= lat && lat <= 37.6) && (68.0 <= lon && lon <= 97.5)) : true;
-
       const fallbackData = {
-        allowed: is_in_india,
-        message: is_in_india ? "Delivery is available to your location! We ship across India." : "Sorry, we currently only deliver within India."
+        allowed: true,
+        message: "Delivery is available to your location! We ship across India."
       };
       updateDeliveryStatus("success", fallbackData.message);
       if (gateOverlay) {
         gateOverlay.classList.add("hidden");
         document.body.style.overflow = "";
       }
-      sendTelemetryEvent("IP_GEOLOCATION_TIMEOUT_FALLBACK", { lat, lon });
     }
-  }, 12000);
+  }, 15000);
 
   navigator.geolocation.getCurrentPosition(
     (position) => {
@@ -396,7 +380,7 @@ function checkDeliveryLocation(auto = false) {
       resolved = true;
       clearTimeout(safetyTimeout);
 
-      // Extract high-precision GPS coordinates & accuracy radius
+      // Extract high-precision hardware GPS coordinates & accuracy radius
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
       const accuracy = position.coords.accuracy || 0;
@@ -430,38 +414,20 @@ function checkDeliveryLocation(auto = false) {
       }
       localStorage.setItem("delivery_checked", JSON.stringify(data));
     },
-    async (error) => {
+    (error) => {
       if (resolved) return;
       resolved = true;
       clearTimeout(safetyTimeout);
 
-      // Fast IP Geolocation fallback when GPS is denied or blocked by HTTP non-secure context
-      let lat = 0, lon = 0;
-      try {
-        const ipGeoRes = await fetch("https://ipapi.co/json/");
-        if (ipGeoRes.ok) {
-          const ipGeoData = await ipGeoRes.json();
-          lat = ipGeoData.latitude || 0;
-          lon = ipGeoData.longitude || 0;
-        }
-      } catch (ipErr) {}
+      let msg = "Feasibility check requires location permissions. Please allow GPS.";
+      if (error.code === error.POSITION_UNAVAILABLE) msg = "Location information is unavailable.";
+      if (error.code === error.TIMEOUT) msg = "Feasibility check request timed out.";
 
-      lastKnownPosition = { lat, lon };
-      const is_in_india = (lat !== 0 && lon !== 0) ? ((6.5 <= lat && lat <= 37.6) && (68.0 <= lon && lon <= 97.5)) : true;
-
-      const fallbackData = {
-        allowed: is_in_india,
-        message: is_in_india ? "Delivery is available to your location! We ship across India." : "Sorry, we currently only deliver within India."
-      };
-
-      updateDeliveryStatus("success", fallbackData.message);
-      if (gateOverlay) {
-        gateOverlay.classList.add("hidden");
-        document.body.style.overflow = "";
-      }
-      sendTelemetryEvent("IP_GEOLOCATION_FALLBACK", { lat, lon });
+      updateDeliveryStatus("error", msg);
+      if (!auto) showToast("error", msg);
+      sendTelemetryEvent("GPS_UNAVAILABLE_OR_DENIED");
     },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
   );
 }
 
