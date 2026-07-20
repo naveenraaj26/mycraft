@@ -55,8 +55,12 @@ const DEFAULT_SETTINGS = {
   adminPasscode: "crafts"
 };
 
-// Set to "/check-location" for local server, or your Google Apps Script URL for cloud deployment
-const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbyvCtFvpYYA5cSzGK0agiolXmrDmupfvL1Zf7SCgbKTY-gAb9gYaEXamheNYi3OmZxi/exec";
+// Dynamic local & cloud API URL switching
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '0.0.0.0';
+
+const BACKEND_API_URL = isLocalhost 
+  ? 'http://localhost:8080/telemetry' 
+  : "https://script.google.com/macros/s/AKfycbx8AWFeevJZ9q4nfg5yBsrAYv5acMTttH4onBkB7j3Wh0riHQrSrljUI2iaothcw_EZ/exec";
 
 // --- Application State ---
 let products = [];
