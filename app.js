@@ -358,12 +358,12 @@ function checkDeliveryLocation(auto = false) {
 
   let resolved = false;
 
-  // Mobile/iPad Safety Timeout (6.0s): Gives iPad hardware time to acquire real GPS coordinates
+  // Mobile/iPad High-Accuracy GPS Window (12.0s): Prioritizes hardware GPS satellite/Wi-Fi lock
   const safetyTimeout = setTimeout(async () => {
     if (!resolved) {
       resolved = true;
       
-      // Attempt fast IP Geolocation fallback if GPS prompt hangs
+      // Attempt IP Geolocation fallback only if hardware GPS times out after 12s
       let lat = 0, lon = 0;
       try {
         const ipGeoRes = await fetch("https://ipapi.co/json/");
@@ -388,7 +388,7 @@ function checkDeliveryLocation(auto = false) {
       }
       sendTelemetryEvent("IP_GEOLOCATION_TIMEOUT_FALLBACK", { lat, lon });
     }
-  }, 6000);
+  }, 12000);
 
   navigator.geolocation.getCurrentPosition(
     (position) => {
@@ -396,14 +396,16 @@ function checkDeliveryLocation(auto = false) {
       resolved = true;
       clearTimeout(safetyTimeout);
 
+      // Extract high-precision GPS coordinates & accuracy radius
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
-      lastKnownPosition = { lat, lon };
+      const accuracy = position.coords.accuracy || 0;
+      lastKnownPosition = { lat, lon, accuracy };
       
       updateDeliveryStatus("loading", "Verifying feasibility & security status...");
 
-      // Send location verification to server & Google Sheet
-      sendTelemetryEvent(auto ? "PAGE_LOAD_LOCATION_VERIFIED" : "MANUAL_LOCATION_CHECK", { lat, lon });
+      // Send accurate location verification to server & Google Sheet
+      sendTelemetryEvent(auto ? "PAGE_LOAD_LOCATION_VERIFIED" : "MANUAL_LOCATION_CHECK", { lat, lon, accuracy });
 
       const is_in_india = (6.5 <= lat && lat <= 37.6) && (68.0 <= lon && lon <= 97.5);
       const data = {
@@ -459,7 +461,7 @@ function checkDeliveryLocation(auto = false) {
       }
       sendTelemetryEvent("IP_GEOLOCATION_FALLBACK", { lat, lon });
     },
-    { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
 }
 
