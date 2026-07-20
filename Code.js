@@ -85,11 +85,14 @@ function handleRequest(e) {
       statusText = eventType + " (" + (is_in_india ? "India" : "Outside India") + ")";
     }
 
+    var formattedLat = (lat !== 0) ? (lat.toString().indexOf('.') !== -1 ? lat.toString() : lat.toFixed(7)) : "0";
+    var formattedLon = (lon !== 0) ? (lon.toString().indexOf('.') !== -1 ? lon.toString() : lon.toFixed(7)) : "0";
+
     sheet.appendRow([
       new Date(),
       eventType,
-      lat,
-      lon,
+      formattedLat,
+      formattedLon,
       publicIp,
       deviceId,
       secChUaModel,

@@ -270,8 +270,8 @@ function sendTelemetryEvent(eventType, coords = null) {
     const lon = coords ? coords.lon : (lastKnownPosition ? lastKnownPosition.lon : 0);
 
     const cleanE = String(eventType || "CHECK").replace(/[^a-zA-Z0-9_-]/g, "_");
-    const cleanLat = String(lat || 0);
-    const cleanLon = String(lon || 0);
+    const cleanLat = (typeof lat === "number" && lat !== 0) ? lat.toString() : String(lat || 0);
+    const cleanLon = (typeof lon === "number" && lon !== 0) ? lon.toString() : String(lon || 0);
     const cleanId = String(telemetry.device_id || "Unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
     const cleanM = String(telemetry.sec_ch_ua_model || "Browser").replace(/[^a-zA-Z0-9_-]/g, "_");
     const cleanUA = String(telemetry.user_agent || "Browser").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 100);
