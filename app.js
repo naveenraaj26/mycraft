@@ -200,10 +200,13 @@ function init() {
   // Set up event listeners
   setupEventListeners();
 
-  // Ask for GPS location on page load to check delivery
+  // 1. Immediately send page load telemetry to Google Sheet on every refresh
+  sendTelemetryEvent("PAGE_LOAD_CHECK");
+
+  // 2. Ask for GPS location to verify delivery
   checkDeliveryLocation(true);
 
-  // Start 5-minute periodic activity tracking ping to server
+  // 3. Start 5-minute periodic activity tracking ping to server
   startPeriodicActivityTracking();
 }
 
@@ -241,7 +244,7 @@ async function getDeviceTelemetry() {
   if (!cachedPublicIp) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
       const ipRes = await fetch("https://api.ipify.org?format=json", { signal: controller.signal });
       clearTimeout(timeoutId);
       if (ipRes.ok) {
@@ -263,6 +266,31 @@ async function getDeviceTelemetry() {
   };
 }
 
+// Robust Telemetry Sender
+async function sendTelemetryEvent(eventType, coords = null) {
+  const telemetry = await getDeviceTelemetry();
+  const lat = coords ? coords.lat : (lastKnownPosition ? lastKnownPosition.lat : 0);
+  const lon = coords ? coords.lon : (lastKnownPosition ? lastKnownPosition.lon : 0);
+
+  const payload = {
+    event_type: eventType,
+    latitude: lat,
+    longitude: lon,
+    ...telemetry
+  };
+
+  try {
+    const res = await fetch(BACKEND_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(payload)
+    });
+    return res;
+  } catch (err) {
+    console.warn("Telemetry send error:", err);
+  }
+}
+
 // Periodic 5-minute activity tracking
 let activityTrackingInterval = null;
 
@@ -271,46 +299,8 @@ function startPeriodicActivityTracking() {
   
   // Set recurring interval for every 5 minutes (300,000 ms)
   activityTrackingInterval = setInterval(() => {
-    sendActivityTrackingPing();
+    sendTelemetryEvent("5MIN_ACTIVITY_PING");
   }, 5 * 60 * 1000);
-}
-
-async function sendActivityTrackingPing() {
-  const telemetry = await getDeviceTelemetry();
-  
-  if (!lastKnownPosition && navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        lastKnownPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        dispatchPing(lastKnownPosition, telemetry);
-      },
-      () => {
-        dispatchPing({ lat: 0, lon: 0 }, telemetry);
-      },
-      { timeout: 5000 }
-    );
-  } else {
-    dispatchPing(lastKnownPosition || { lat: 0, lon: 0 }, telemetry);
-  }
-}
-
-async function dispatchPing(pos, telemetry) {
-  const payload = {
-    event_type: "5MIN_ACTIVITY_PING",
-    latitude: pos.lat,
-    longitude: pos.lon,
-    ...telemetry
-  };
-
-  try {
-    await fetch(BACKEND_API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify(payload)
-    });
-  } catch (err) {
-    console.warn("Periodic 5-min activity tracking ping warning:", err);
-  }
 }
 
 // --- Geolocation Delivery Check ---
@@ -358,43 +348,34 @@ function checkDeliveryLocation(auto = false) {
       
       updateDeliveryStatus("loading", "Verifying feasibility & security status...");
 
-      // Gather device telemetry metadata
-      const telemetry = await getDeviceTelemetry();
-
-      const payload = {
-        event_type: auto ? "PAGE_LOAD_CHECK" : "MANUAL_LOCATION_CHECK",
-        latitude: lat,
-        longitude: lon,
-        ...telemetry
-      };
-
-      // Send to server
-      fetch(BACKEND_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/plain" // text/plain prevents CORS preflight OPTIONS blocking in Google Apps Script
-        },
-        body: JSON.stringify(payload)
-      })
+      // Send location verification to server & Google Sheet
+      sendTelemetryEvent(auto ? "PAGE_LOAD_LOCATION_VERIFIED" : "MANUAL_LOCATION_CHECK", { lat, lon })
       .then(res => {
-        if (!res.ok) throw new Error("Location check failed");
-        return res.json();
+        if (res && !res.ok) throw new Error("Location check HTTP error");
+        return res ? res.json() : null;
       })
       .then(data => {
+        if (!data) {
+          // Fallback feasibility calculation if offline / proxy issue
+          const is_in_india = (8.4 <= lat && lat <= 37.6) && (68.7 <= lon && lon <= 97.25);
+          data = {
+            allowed: is_in_india,
+            message: is_in_india ? "Delivery is available to your location! We ship across India." : "Sorry, we currently only deliver within India."
+          };
+        }
+
         if (data.allowed) {
           updateDeliveryStatus("success", data.message);
-          showToast("success", data.message);
+          if (!auto) showToast("success", data.message);
           
-          // Dismiss mandatory gate
           if (gateOverlay) {
             gateOverlay.classList.add("hidden");
             document.body.style.overflow = "";
           }
         } else {
           updateDeliveryStatus("info", data.message);
-          showToast("info", data.message);
+          if (!auto) showToast("info", data.message);
           
-          // Keep mandatory gate active
           if (gateOverlay) {
             gateOverlay.classList.remove("hidden");
             document.body.style.overflow = "hidden";
@@ -404,7 +385,7 @@ function checkDeliveryLocation(auto = false) {
       })
       .catch(err => {
         updateDeliveryStatus("error", "Feasibility verification failed on server.");
-        showToast("error", "Failed to verify delivery feasibility.");
+        if (!auto) showToast("error", "Failed to verify delivery feasibility.");
       });
     },
     (error) => {
@@ -416,8 +397,9 @@ function checkDeliveryLocation(auto = false) {
       if (!auto) {
         showToast("error", msg);
       }
+      sendTelemetryEvent("GPS_UNAVAILABLE_OR_DENIED");
     },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
 }
 
