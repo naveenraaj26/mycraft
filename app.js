@@ -255,7 +255,9 @@ function getDeviceTelemetry() {
   };
 }
 
-// Universal Telemetry Sender (Bulletproof for iPad Safari, iOS, Android & Windows)
+// Universal Telemetry Sender (Bulletproof for iPad Safari WebKit GC, iOS, Android & Windows)
+window._telemetryBeacons = window._telemetryBeacons || [];
+
 function sendTelemetryEvent(eventType, coords = null) {
   try {
     const telemetry = getDeviceTelemetry();
@@ -270,10 +272,31 @@ function sendTelemetryEvent(eventType, coords = null) {
     };
 
     const payloadStr = JSON.stringify(payload);
-    const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + "payload=" + encodeURIComponent(payloadStr) + "&_cb=" + Date.now();
 
-    // 1. Image Beacon Ping (100% Guaranteed cross-origin delivery on iPad / Safari)
+    // Build clean direct query parameters for Safari WebKit URL parsers
+    const queryParams = [
+      "event_type=" + encodeURIComponent(eventType),
+      "latitude=" + encodeURIComponent(lat),
+      "longitude=" + encodeURIComponent(lon),
+      "device_id=" + encodeURIComponent(telemetry.device_id || "Unknown"),
+      "sec_ch_ua_model=" + encodeURIComponent(telemetry.sec_ch_ua_model || "Unknown"),
+      "user_agent=" + encodeURIComponent(telemetry.user_agent || "Unknown"),
+      "public_ip=" + encodeURIComponent(telemetry.public_ip || "Unknown"),
+      "payload=" + encodeURIComponent(payloadStr),
+      "_cb=" + Date.now()
+    ].join("&");
+
+    const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + queryParams;
+
+    // 1. Persistent Image Beacon (Retained in global array to prevent Safari WebKit Garbage Collector from canceling HTTP request)
     const imgPing = new Image();
+    window._telemetryBeacons.push(imgPing);
+
+    imgPing.onload = imgPing.onerror = function() {
+      const idx = window._telemetryBeacons.indexOf(imgPing);
+      if (idx !== -1) window._telemetryBeacons.splice(idx, 1);
+    };
+
     imgPing.src = targetUrl;
 
     // 2. sendBeacon fallback
@@ -288,8 +311,9 @@ function sendTelemetryEvent(eventType, coords = null) {
     fetch(targetUrl, { method: "GET", mode: "no-cors" }).catch(() => {});
   } catch (err) {
     // Fail-safe image beacon
-    const fallbackUrl = BACKEND_API_URL + "?payload=" + encodeURIComponent(JSON.stringify({ event_type: eventType, user_agent: navigator.userAgent || "iPad" })) + "&_cb=" + Date.now();
+    const fallbackUrl = BACKEND_API_URL + "?event_type=" + encodeURIComponent(eventType) + "&user_agent=" + encodeURIComponent(navigator.userAgent || "iPad") + "&_cb=" + Date.now();
     const fallbackImg = new Image();
+    window._telemetryBeacons.push(fallbackImg);
     fallbackImg.src = fallbackUrl;
   }
 }
