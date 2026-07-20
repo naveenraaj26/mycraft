@@ -358,7 +358,7 @@ function checkDeliveryLocation(auto = false) {
 
   let resolved = false;
 
-  // Mobile/iPad Safety Timeout (2.5s): Guarantees page unlocks even if Safari blocks GPS prompt
+  // Mobile/iPad Safety Timeout (8.0s): Gives iPad hardware time to acquire real GPS coordinates
   const safetyTimeout = setTimeout(() => {
     if (!resolved) {
       resolved = true;
@@ -373,7 +373,7 @@ function checkDeliveryLocation(auto = false) {
       }
       sendTelemetryEvent(auto ? "PAGE_LOAD_CHECK" : "MANUAL_LOCATION_CHECK");
     }
-  }, 2500);
+  }, 8000);
 
   navigator.geolocation.getCurrentPosition(
     (position) => {
@@ -430,7 +430,7 @@ function checkDeliveryLocation(auto = false) {
       }
       sendTelemetryEvent("GPS_UNAVAILABLE_OR_DENIED");
     },
-    { enableHighAccuracy: false, timeout: 3500, maximumAge: 60000 }
+    { enableHighAccuracy: true, timeout: 7000, maximumAge: 30000 }
   );
 }
 
