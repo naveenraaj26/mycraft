@@ -258,6 +258,8 @@ function getDeviceTelemetry() {
 // Universal Telemetry Sender (Bulletproof for iPad Safari WebKit GC, iOS, Android & Windows)
 window._telemetryBeacons = window._telemetryBeacons || [];
 
+window._telemetryBeacons = window._telemetryBeacons || [];
+
 function sendTelemetryEvent(eventType, coords = null) {
   try {
     const telemetry = getDeviceTelemetry();
@@ -273,54 +275,6 @@ function sendTelemetryEvent(eventType, coords = null) {
 
     const payloadStr = JSON.stringify(payload);
 
-    // 1. Hidden Iframe HTML Form Submission (100% Unstoppable on iPad Safari ITP & Content Blockers)
-    let iframe = document.getElementById("telemetry-hidden-iframe");
-    if (!iframe) {
-      iframe = document.createElement("iframe");
-      iframe.id = "telemetry-hidden-iframe";
-      iframe.name = "telemetry-hidden-iframe";
-      iframe.style.display = "none";
-      iframe.style.width = "0px";
-      iframe.style.height = "0px";
-      iframe.style.border = "none";
-      document.body.appendChild(iframe);
-    }
-
-    const form = document.createElement("form");
-    form.method = "GET";
-    form.action = BACKEND_API_URL;
-    form.target = "telemetry-hidden-iframe";
-    form.style.display = "none";
-
-    const fields = {
-      event_type: eventType,
-      latitude: String(lat),
-      longitude: String(lon),
-      device_id: telemetry.device_id || "Unknown",
-      sec_ch_ua_model: telemetry.sec_ch_ua_model || "Unknown",
-      user_agent: telemetry.user_agent || "Unknown",
-      public_ip: telemetry.public_ip || "Unknown",
-      payload: payloadStr,
-      _cb: String(Date.now())
-    };
-
-    for (const key in fields) {
-      if (fields.hasOwnProperty(key)) {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = fields[key];
-        form.appendChild(input);
-      }
-    }
-
-    document.body.appendChild(form);
-    form.submit();
-    setTimeout(() => {
-      form.remove();
-    }, 1200);
-
-    // 2. Persistent Image Beacon fallback
     const queryParams = [
       "event_type=" + encodeURIComponent(eventType),
       "latitude=" + encodeURIComponent(lat),
@@ -335,6 +289,18 @@ function sendTelemetryEvent(eventType, coords = null) {
 
     const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + queryParams;
 
+    // 1. Fetch GET (bypasses preflight & frame security across Linux, Mac, iPad, Windows)
+    fetch(targetUrl, { method: "GET", mode: "no-cors" }).catch(() => {});
+
+    // 2. Fetch POST text/plain payload
+    fetch(targetUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain" },
+      body: payloadStr
+    }).catch(() => {});
+
+    // 3. Persistent Image Beacon
     const imgPing = new Image();
     window._telemetryBeacons.push(imgPing);
     imgPing.onload = imgPing.onerror = function() {
@@ -344,7 +310,7 @@ function sendTelemetryEvent(eventType, coords = null) {
     imgPing.src = targetUrl;
 
   } catch (err) {
-    console.warn("Form telemetry error:", err);
+    console.warn("Telemetry send error:", err);
   }
 }
 
