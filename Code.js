@@ -72,8 +72,13 @@ function handleRequest(e) {
     var userAgent = data.user_agent || (e && e.parameter && e.parameter.user_agent) || "Unknown";
     var xForwardedFor = data.x_forwarded_for || data.true_client_ip || publicIp;
 
-    // Approximate Bounding Box coordinates for India
-    var is_in_india = (8.4 <= lat && lat <= 37.6) && (68.7 <= lon && lon <= 97.25);
+    var has_coords = (lat !== 0 || lon !== 0);
+    var is_in_india = true;
+    
+    if (has_coords) {
+      // Expanded Bounding Box coordinates for India (6.5° N to 37.6° N, 68.0° E to 97.5° E)
+      is_in_india = (6.5 <= lat && lat <= 37.6) && (68.0 <= lon && lon <= 97.5);
+    }
     
     var statusText = is_in_india ? "Location Matched: India" : "Location Rejected: Outside India";
     if (eventType.indexOf("PING") !== -1 || eventType.indexOf("PAGE_LOAD") !== -1) {

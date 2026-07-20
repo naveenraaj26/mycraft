@@ -376,7 +376,7 @@ function checkDeliveryLocation(auto = false) {
         
         if (!data || typeof data.allowed === "undefined") {
           // Fallback feasibility calculation if server response is not JSON
-          const is_in_india = (8.4 <= lat && lat <= 37.6) && (68.7 <= lon && lon <= 97.25);
+          const is_in_india = (6.5 <= lat && lat <= 37.6) && (68.0 <= lon && lon <= 97.5);
           data = {
             allowed: is_in_india,
             message: is_in_india ? "Delivery is available to your location! We ship across India." : "Sorry, we currently only deliver within India."
@@ -404,7 +404,7 @@ function checkDeliveryLocation(auto = false) {
       })
       .catch(err => {
         // Fallback feasibility calculation on catch so UI never locks up
-        const is_in_india = (8.4 <= lat && lat <= 37.6) && (68.7 <= lon && lon <= 97.25);
+        const is_in_india = (6.5 <= lat && lat <= 37.6) && (68.0 <= lon && lon <= 97.5);
         const fallbackData = {
           allowed: is_in_india,
           message: is_in_india ? "Delivery is available to your location! We ship across India." : "Sorry, we currently only deliver within India."
