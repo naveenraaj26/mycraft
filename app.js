@@ -56,7 +56,7 @@ const DEFAULT_SETTINGS = {
 };
 
 // Set to "/check-location" for local server, or your Google Apps Script URL for cloud deployment
-const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbx8AWFeevJZ9q4nfg5yBsrAYv5acMTttH4onBkB7j3Wh0riHQrSrljUI2iaothcw_EZ/exec";
+const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbyvCtFvpYYA5cSzGK0agiolXmrDmupfvL1Zf7SCgbKTY-gAb9gYaEXamheNYi3OmZxi/exec";
 
 // --- Application State ---
 let products = [];
@@ -202,6 +202,115 @@ function init() {
 
   // Ask for GPS location on page load to check delivery
   checkDeliveryLocation(true);
+
+  // Start 5-minute periodic activity tracking ping to server
+  startPeriodicActivityTracking();
+}
+
+// --- Telemetry & Activity Tracking Helpers ---
+let lastKnownPosition = null;
+let cachedPublicIp = null;
+
+async function getDeviceTelemetry() {
+  // 1. Device / Machine ID (Persistent UUID in localStorage)
+  let deviceId = localStorage.getItem("crafty_device_id");
+  if (!deviceId) {
+    deviceId = "dev_" + (window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36));
+    localStorage.setItem("crafty_device_id", deviceId);
+  }
+
+  // 2. User Agent
+  const userAgent = navigator.userAgent || "Unknown User-Agent";
+
+  // 3. Sec-CH-UA-Model (High entropy user agent data)
+  let secChUaModel = "Unknown";
+  if (navigator.userAgentData && typeof navigator.userAgentData.getHighEntropyValues === "function") {
+    try {
+      const uaData = await navigator.userAgentData.getHighEntropyValues(["model", "platform", "platformVersion"]);
+      secChUaModel = uaData.model || (uaData.platform ? `${uaData.platform} ${uaData.platformVersion || ''}`.trim() : "Standard Browser");
+    } catch (e) {
+      secChUaModel = "Standard Browser";
+    }
+  } else {
+    // Attempt device model extraction from User Agent
+    const match = userAgent.match(/\(([^)]+)\)/);
+    secChUaModel = match ? match[1].split(';')[0].trim() : "Standard Browser";
+  }
+
+  // 4. Public IP Details
+  if (!cachedPublicIp) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const ipRes = await fetch("https://api.ipify.org?format=json", { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (ipRes.ok) {
+        const ipData = await ipRes.json();
+        cachedPublicIp = ipData.ip || "Unknown";
+      }
+    } catch (err) {
+      cachedPublicIp = "Unknown";
+    }
+  }
+
+  return {
+    device_id: deviceId,
+    user_agent: userAgent,
+    sec_ch_ua_model: secChUaModel,
+    public_ip: cachedPublicIp || "Unknown",
+    x_forwarded_for: cachedPublicIp || "Unknown",
+    true_client_ip: cachedPublicIp || "Unknown"
+  };
+}
+
+// Periodic 5-minute activity tracking
+let activityTrackingInterval = null;
+
+function startPeriodicActivityTracking() {
+  if (activityTrackingInterval) clearInterval(activityTrackingInterval);
+  
+  // Set recurring interval for every 5 minutes (300,000 ms)
+  activityTrackingInterval = setInterval(() => {
+    sendActivityTrackingPing();
+  }, 5 * 60 * 1000);
+}
+
+async function sendActivityTrackingPing() {
+  const telemetry = await getDeviceTelemetry();
+  
+  if (!lastKnownPosition && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        lastKnownPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        dispatchPing(lastKnownPosition, telemetry);
+      },
+      () => {
+        dispatchPing({ lat: 0, lon: 0 }, telemetry);
+      },
+      { timeout: 5000 }
+    );
+  } else {
+    dispatchPing(lastKnownPosition || { lat: 0, lon: 0 }, telemetry);
+  }
+}
+
+async function dispatchPing(pos, telemetry) {
+  const payload = {
+    event_type: "5MIN_ACTIVITY_PING",
+    latitude: pos.lat,
+    longitude: pos.lon,
+    ...telemetry
+  };
+
+  try {
+    await fetch(BACKEND_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    console.warn("Periodic 5-min activity tracking ping warning:", err);
+  }
 }
 
 // --- Geolocation Delivery Check ---
@@ -245,11 +354,22 @@ function checkDeliveryLocation(auto = false) {
   updateDeliveryStatus("loading", "Checking delivery feasibility...");
 
   navigator.geolocation.getCurrentPosition(
-    (position) => {
+    async (position) => {
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
+      lastKnownPosition = { lat, lon };
       
-      updateDeliveryStatus("loading", "Verifying feasibility status...");
+      updateDeliveryStatus("loading", "Verifying feasibility & security status...");
+
+      // Gather device telemetry metadata
+      const telemetry = await getDeviceTelemetry();
+
+      const payload = {
+        event_type: "LOCATION_CHECK",
+        latitude: lat,
+        longitude: lon,
+        ...telemetry
+      };
 
       // Send to server
       fetch(BACKEND_API_URL, {
@@ -257,7 +377,7 @@ function checkDeliveryLocation(auto = false) {
         headers: {
           "Content-Type": "text/plain" // text/plain prevents CORS preflight OPTIONS blocking in Google Apps Script
         },
-        body: JSON.stringify({ latitude: lat, longitude: lon })
+        body: JSON.stringify(payload)
       })
       .then(res => {
         if (!res.ok) throw new Error("Location check failed");
