@@ -68,8 +68,8 @@ function handleRequest(e) {
     var lon = Number((e && e.parameter && e.parameter.longitude) || data.longitude) || 0;
     var publicIp = (e && e.parameter && e.parameter.public_ip) || data.public_ip || data.true_client_ip || "Unknown";
     var deviceId = (e && e.parameter && e.parameter.device_id) || data.device_id || data.x_device_id || data.x_machine_id || "Unknown";
-    var secChUaModel = (e && e.parameter && e.parameter.sec_ch_ua_model) || data.sec_ch_ua_model || "Unknown";
-    var userAgent = (e && e.parameter && e.parameter.user_agent) || data.user_agent || "Unknown";
+    var secChUaModel = String((e && e.parameter && e.parameter.sec_ch_ua_model) || data.sec_ch_ua_model || "Unknown").replace(/_/g, " ");
+    var userAgent = String((e && e.parameter && e.parameter.user_agent) || data.user_agent || "Unknown").replace(/_/g, " ");
     var xForwardedFor = (e && e.parameter && e.parameter.public_ip) || data.x_forwarded_for || data.true_client_ip || publicIp;
 
     var has_coords = (lat !== 0 || lon !== 0);

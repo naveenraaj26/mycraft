@@ -268,9 +268,9 @@ function sendTelemetryEvent(eventType, coords = null) {
     const cleanLat = String(lat || 0);
     const cleanLon = String(lon || 0);
     const cleanDeviceId = String(telemetry.device_id || "Unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
-    const cleanModel = String(telemetry.sec_ch_ua_model || "Browser").replace(/[^a-zA-Z0-9_ -]/g, "_");
-    const cleanUA = String(telemetry.user_agent || "Browser").substring(0, 150).replace(/[^a-zA-Z0-9_ .;\/()-]/g, "_");
-    const cleanIP = String(telemetry.public_ip || "Unknown").replace(/[^a-zA-Z0-9_.:]/g, "_");
+    const cleanModel = String(telemetry.sec_ch_ua_model || "Browser").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const cleanUA = String(telemetry.user_agent || "Browser").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 120);
+    const cleanIP = String(telemetry.public_ip || "Unknown").replace(/[^a-zA-Z0-9_.]/g, "_");
 
     const queryParams = [
       "event_type=" + encodeURIComponent(cleanEventType),
