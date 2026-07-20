@@ -60,7 +60,7 @@ const host = window.location.hostname;
 const isLocalNetwork = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.');
 
 const BACKEND_API_URL = isLocalNetwork 
-  ? `http://${host}:${window.location.port || '8080'}/telemetry` 
+  ? `${window.location.protocol}//${host}:${window.location.port || '8080'}/telemetry` 
   : "https://script.google.com/macros/s/AKfycbx8AWFeevJZ9q4nfg5yBsrAYv5acMTttH4onBkB7j3Wh0riHQrSrljUI2iaothcw_EZ/exec";
 
 // --- Application State ---
