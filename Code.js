@@ -11,7 +11,11 @@
 function doPost(e) {
   var sheet;
   try {
-    sheet = SpreadsheetApp.openById("12lQkC2RYK1p2CqvNO8RkkvUEBJcDsq2YeA_lmGGZUMY").getSheets()[0];
+    try {
+      sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    } catch (sErr) {
+      sheet = SpreadsheetApp.openById("12lQkC2RYK1p2CqvNO8RkkvUEBJcDsq2YeA_lmGGZUMY").getSheets()[0];
+    }
     
     // Ensure column headers exist if sheet is blank
     if (sheet.getLastRow() === 0) {

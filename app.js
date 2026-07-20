@@ -280,8 +280,10 @@ async function sendTelemetryEvent(eventType, coords = null) {
   };
 
   try {
+    // mode: "no-cors" ensures cross-origin POST requests bypass browser CORS preflight blocks to Apps Script
     const res = await fetch(BACKEND_API_URL, {
       method: "POST",
+      mode: "no-cors",
       headers: { "Content-Type": "text/plain" },
       body: JSON.stringify(payload)
     });
