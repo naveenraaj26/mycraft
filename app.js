@@ -255,7 +255,7 @@ function getDeviceTelemetry() {
   };
 }
 
-// Universal Telemetry Sender (Bulletproof across Linux, Mac, iPad Safari, iOS, Android & Windows)
+// Universal Telemetry Sender (Safari ITP proof across iPhone, iPad, Linux, Mac, Android & Windows)
 window._telemetryBeacons = window._telemetryBeacons || [];
 
 function sendTelemetryEvent(eventType, coords = null) {
@@ -264,28 +264,28 @@ function sendTelemetryEvent(eventType, coords = null) {
     const lat = coords ? coords.lat : (lastKnownPosition ? lastKnownPosition.lat : 0);
     const lon = coords ? coords.lon : (lastKnownPosition ? lastKnownPosition.lon : 0);
 
-    const cleanEventType = String(eventType || "LOCATION_CHECK").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const cleanE = String(eventType || "CHECK").replace(/[^a-zA-Z0-9_-]/g, "_");
     const cleanLat = String(lat || 0);
     const cleanLon = String(lon || 0);
-    const cleanDeviceId = String(telemetry.device_id || "Unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
-    const cleanModel = String(telemetry.sec_ch_ua_model || "Browser").replace(/[^a-zA-Z0-9_-]/g, "_");
-    const cleanUA = String(telemetry.user_agent || "Browser").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 120);
+    const cleanId = String(telemetry.device_id || "Unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const cleanM = String(telemetry.sec_ch_ua_model || "Browser").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const cleanUA = String(telemetry.user_agent || "Browser").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 100);
     const cleanIP = String(telemetry.public_ip || "Unknown").replace(/[^a-zA-Z0-9_.]/g, "_");
 
     const queryParams = [
-      "event_type=" + encodeURIComponent(cleanEventType),
-      "latitude=" + encodeURIComponent(cleanLat),
-      "longitude=" + encodeURIComponent(cleanLon),
-      "device_id=" + encodeURIComponent(cleanDeviceId),
-      "sec_ch_ua_model=" + encodeURIComponent(cleanModel),
-      "user_agent=" + encodeURIComponent(cleanUA),
-      "public_ip=" + encodeURIComponent(cleanIP),
+      "e=" + encodeURIComponent(cleanE),
+      "lat=" + encodeURIComponent(cleanLat),
+      "lon=" + encodeURIComponent(cleanLon),
+      "id=" + encodeURIComponent(cleanId),
+      "m=" + encodeURIComponent(cleanM),
+      "ua=" + encodeURIComponent(cleanUA),
+      "ip=" + encodeURIComponent(cleanIP),
       "_t=" + Date.now()
     ].join("&");
 
     const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + queryParams;
 
-    // 1. Persistent Image Beacon (Fires cross-origin GET request directly through Google 302 gateway)
+    // 1. Persistent Image Beacon
     const imgPing = new Image();
     window._telemetryBeacons.push(imgPing);
     imgPing.onload = imgPing.onerror = function() {
