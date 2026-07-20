@@ -279,13 +279,16 @@ async function sendTelemetryEvent(eventType, coords = null) {
     ...telemetry
   };
 
+  const payloadStr = JSON.stringify(payload);
+
   try {
-    // mode: "no-cors" ensures cross-origin POST requests bypass browser CORS preflight blocks to Apps Script
-    const res = await fetch(BACKEND_API_URL, {
+    // Append payload to URL query parameter as bulletproof fallback in case post body is stripped
+    const targetUrl = BACKEND_API_URL + (BACKEND_API_URL.includes("?") ? "&" : "?") + "payload=" + encodeURIComponent(payloadStr);
+
+    const res = await fetch(targetUrl, {
       method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify(payload)
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: payloadStr
     });
     return res;
   } catch (err) {
@@ -352,13 +355,19 @@ function checkDeliveryLocation(auto = false) {
 
       // Send location verification to server & Google Sheet
       sendTelemetryEvent(auto ? "PAGE_LOAD_LOCATION_VERIFIED" : "MANUAL_LOCATION_CHECK", { lat, lon })
-      .then(res => {
-        if (res && !res.ok) throw new Error("Location check HTTP error");
-        return res ? res.json() : null;
-      })
-      .then(data => {
-        if (!data) {
-          // Fallback feasibility calculation if offline / proxy issue
+      .then(async res => {
+        let data = null;
+        if (res && res.ok) {
+          try {
+            data = await res.json();
+          } catch (jsonErr) {
+            // Server returned non-JSON (e.g. Google auth HTML redirect)
+            data = null;
+          }
+        }
+        
+        if (!data || typeof data.allowed === "undefined") {
+          // Fallback feasibility calculation if server response is not JSON
           const is_in_india = (8.4 <= lat && lat <= 37.6) && (68.7 <= lon && lon <= 97.25);
           data = {
             allowed: is_in_india,
@@ -386,8 +395,29 @@ function checkDeliveryLocation(auto = false) {
         localStorage.setItem("delivery_checked", JSON.stringify(data));
       })
       .catch(err => {
-        updateDeliveryStatus("error", "Feasibility verification failed on server.");
-        if (!auto) showToast("error", "Failed to verify delivery feasibility.");
+        // Fallback feasibility calculation on catch so UI never locks up
+        const is_in_india = (8.4 <= lat && lat <= 37.6) && (68.7 <= lon && lon <= 97.25);
+        const fallbackData = {
+          allowed: is_in_india,
+          message: is_in_india ? "Delivery is available to your location! We ship across India." : "Sorry, we currently only deliver within India."
+        };
+
+        if (fallbackData.allowed) {
+          updateDeliveryStatus("success", fallbackData.message);
+          if (!auto) showToast("success", fallbackData.message);
+          if (gateOverlay) {
+            gateOverlay.classList.add("hidden");
+            document.body.style.overflow = "";
+          }
+        } else {
+          updateDeliveryStatus("info", fallbackData.message);
+          if (!auto) showToast("info", fallbackData.message);
+          if (gateOverlay) {
+            gateOverlay.classList.remove("hidden");
+            document.body.style.overflow = "hidden";
+          }
+        }
+        localStorage.setItem("delivery_checked", JSON.stringify(fallbackData));
       });
     },
     (error) => {
